@@ -11,12 +11,38 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # -----------------------------
+      # 1️⃣ Set up Java (your existing step)
+      # -----------------------------
       - name: Set up Java
         uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
           java-version: '11'
 
+      # -----------------------------
+      # 2️⃣ Set up Node.js (required for Zowe CLI)
+      # -----------------------------
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      # -----------------------------
+      # 3️⃣ Install Zowe CLI
+      # -----------------------------
+      - name: Install Zowe CLI
+        run: npm install -g @zowe/cli
+
+      # -----------------------------
+      # 4️⃣ Verify Zowe CLI installation
+      # -----------------------------
+      - name: Verify Zowe CLI
+        run: zowe --version
+
+      # -----------------------------
+      # 5️⃣ Run your COBOL operations script
+      # -----------------------------
       - name: Run COBOL Check
         env:
           ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
