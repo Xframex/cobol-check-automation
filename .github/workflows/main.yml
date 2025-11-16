@@ -44,12 +44,12 @@ jobs:
           zowe --help
 
       # -----------------------------
-      # 🔧 FIXED: Configure Zowe CLI using environment variables
+      # 🔧 FIXED: Use your actual secret names
       # -----------------------------
       - name: Configure Zowe CLI
         env:
-          ZOWE_OPT_HOST: "204.90.115.200"
-          ZOWE_OPT_PORT: 10443
+          ZOWE_OPT_HOST: ${{ secrets.ZOWE_HOST }}
+          ZOWE_OPT_PORT: ${{ secrets.ZOWE_PORT }}
           ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
           ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
           ZOWE_OPT_REJECT_UNAUTHORIZED: false
@@ -64,8 +64,8 @@ jobs:
       # -----------------------------
       - name: Test Zowe Connection
         env:
-          ZOWE_OPT_HOST: "204.90.115.200"
-          ZOWE_OPT_PORT: 10443
+          ZOWE_OPT_HOST: ${{ secrets.ZOWE_HOST }}
+          ZOWE_OPT_PORT: ${{ secrets.ZOWE_PORT }}
           ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
           ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
           ZOWE_OPT_REJECT_UNAUTHORIZED: false
@@ -78,8 +78,8 @@ jobs:
       # -----------------------------
       - name: Run COBOL Check
         env:
-          ZOWE_OPT_HOST: "204.90.115.200"
-          ZOWE_OPT_PORT: 10443
+          ZOWE_OPT_HOST: ${{ secrets.ZOWE_HOST }}
+          ZOWE_OPT_PORT: ${{ secrets.ZOWE_PORT }}
           ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
           ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
           ZOWE_OPT_REJECT_UNAUTHORIZED: false
