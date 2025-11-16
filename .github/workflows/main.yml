@@ -86,3 +86,15 @@ jobs:
         run: |
           chmod +x .github/scripts/zowe_operations.sh
           .github/scripts/zowe_operations.sh
+        # 🆕 NEW STEP: Run COBOL Check on Mainframe
+      # -----------------------------
+      - name: Run COBOL Check on Mainframe
+        env:
+          ZOWE_OPT_HOST: ${{ secrets.ZOWE_HOST }}
+          ZOWE_OPT_PORT: ${{ secrets.ZOWE_PORT }}
+          ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
+          ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_REJECT_UNAUTHORIZED: false
+        run: |
+          chmod +x .github/scripts/mainframe_operations.sh
+          .github/scripts/mainframe_operations.sh    
