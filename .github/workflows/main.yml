@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v2
 
       # -----------------------------
-      # 1️⃣ Set up Java (your existing step)
+      # 1️⃣ Set up Java
       # -----------------------------
       - name: Set up Java
         uses: actions/setup-java@v2
@@ -21,7 +21,7 @@ jobs:
           java-version: '11'
 
       # -----------------------------
-      # 2️⃣ Set up Node.js (required for Zowe CLI)
+      # 2️⃣ Set up Node.js
       # -----------------------------
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -35,7 +35,7 @@ jobs:
         run: npm install -g @zowe/cli
 
       # -----------------------------
-      # 4️⃣ Verify Zowe CLI installation and check syntax
+      # 4️⃣ Verify Zowe CLI installation
       # -----------------------------
       - name: Verify Zowe CLI
         run: |
@@ -44,39 +44,31 @@ jobs:
           zowe --help
 
       # -----------------------------
-      # 🔧 NEW: Configure Zowe CLI with correct syntax
+      # 🔧 FIXED: Configure Zowe CLI using environment variables
       # -----------------------------
       - name: Configure Zowe CLI
         env:
-          ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
-          ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_HOST: "204.90.115.200"
+          ZOWE_OPT_PORT: 10443
+          ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
+          ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_REJECT_UNAUTHORIZED: false
         run: |
-          echo "Configuring Zowe CLI connection..."
-          
-          # First, let's check what profiles commands are available
-          echo "Checking available profiles commands:"
-          zowe profiles --help || true
-          
-          # Try the correct syntax for creating a zosmf profile
-          echo "Creating zosmf profile..."
-          zowe config set profiles.zosmf.properties.host "204.90.115.200"
-          zowe config set profiles.zosmf.properties.port 10443
-          zowe config set profiles.zosmf.properties.user "$ZOWE_USERNAME"
-          zowe config set profiles.zosmf.properties.password "$ZOWE_PASSWORD"
-          zowe config set profiles.zosmf.properties.rejectUnauthorized false
-          
-          # Set as default profile
-          zowe config set defaults.zosmf zosmf
-          
-          echo "Zowe CLI configuration completed successfully"
+          echo "Zowe configuration set via environment variables"
+          echo "Host: $ZOWE_OPT_HOST"
+          echo "Port: $ZOWE_OPT_PORT"
+          echo "User: $ZOWE_OPT_USER"
 
       # -----------------------------
       # 5️⃣ Test the connection
       # -----------------------------
       - name: Test Zowe Connection
         env:
-          ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
-          ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_HOST: "204.90.115.200"
+          ZOWE_OPT_PORT: 10443
+          ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
+          ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_REJECT_UNAUTHORIZED: false
         run: |
           echo "Testing Zowe connection..."
           zowe zos-files list uss "/" --response-timeout 30 || echo "Connection test completed"
@@ -86,8 +78,11 @@ jobs:
       # -----------------------------
       - name: Run COBOL Check
         env:
-          ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
-          ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_HOST: "204.90.115.200"
+          ZOWE_OPT_PORT: 10443
+          ZOWE_OPT_USER: ${{ secrets.ZOWE_USERNAME }}
+          ZOWE_OPT_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_OPT_REJECT_UNAUTHORIZED: false
         run: |
           chmod +x .github/scripts/zowe_operations.sh
           .github/scripts/zowe_operations.sh
