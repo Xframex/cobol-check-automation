@@ -1,51 +1,81 @@
 #!/bin/bash
 # mainframe_operations.sh
 
-echo "Starting mainframe operations..."
+echo "Starting automated job submission..."
 
-# Use the Zowe username from environment variable
 ZOWE_USERNAME="$ZOWE_OPT_USER"
-LOWERCASE_USERNAME=$(echo "$ZOWE_USERNAME" | tr '[:upper:]' '[:lower:]')
-
 echo "Working with username: $ZOWE_USERNAME"
 
-# Execute commands on the mainframe using Zowe CLI
-echo "Changing to cobolcheck directory on mainframe..."
-zowe zos-files list uss "/z/$LOWERCASE_USERNAME/cobolcheck" --response-timeout 30
-
-echo "Listing files in cobolcheck directory:"
-zowe zos-files list uss "/z/$LOWERCASE_USERNAME/cobolcheck" --response-timeout 30
-
-# Function to run cobolcheck and copy files
-run_cobolcheck() {
+# Function to submit job and get detailed output
+process_program() {
   program=$1
-  echo "Running cobolcheck for $program"
-
-  # Execute cobolcheck on the mainframe via SSH or shell command
-  zowe ssh issue command "cd /z/$LOWERCASE_USERNAME/cobolcheck && ./cobolcheck -p $program" --host "$ZOWE_OPT_HOST" --user "$ZOWE_OPT_USER" --password "$ZOWE_OPT_PASSWORD" || echo "Cobolcheck execution completed for $program (exceptions may have occurred)"
-
-  # Check if CC##99.CBL was created and copy it
-  echo "Checking for CC##99.CBL and copying files for $program..."
+  echo "=== Processing $program ==="
   
-  # Copy CC##99.CBL to MVS dataset if it exists
-  zowe zos-files download uss-file "/z/$LOWERCASE_USERNAME/cobolcheck/CC##99.CBL" -f "./temp_cc99.cbl" --response-timeout 30 || echo "CC##99.CBL not found for $program"
-  
-  if [ -f "./temp_cc99.cbl" ]; then
-    zowe zos-files upload file-to-data-set "./temp_cc99.cbl" "$ZOWE_USERNAME.CBL($program)" --response-timeout 30 && echo "Copied CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)" || echo "Failed to copy CC##99.CBL"
-    rm -f "./temp_cc99.cbl"
-  fi
-
-  # Copy the JCL file if it exists in our repository
-  if [ -f "$program.JCL" ]; then
-    zowe zos-files upload file-to-data-set "$program.JCL" "$ZOWE_USERNAME.JCL($program)" --response-timeout 30 && echo "Copied ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)" || echo "Failed to copy ${program}.JCL"
+  # Upload COBOL source code
+  if [ -f "src/main/cobol/$program.CBL" ]; then
+    echo "Uploading $program.CBL to mainframe..."
+    zowe zos-files upload file-to-data-set "src/main/cobol/$program.CBL" "$ZOWE_USERNAME.CBL($program)" --response-timeout 30
   else
-    echo "${program}.JCL not found in repository"
+    echo "Error: $program.CBL not found in repository"
+    return 1
+  fi
+  
+  # Upload JCL file
+  if [ -f "$program.JCL" ]; then
+    echo "Uploading $program.JCL to mainframe..."
+    zowe zos-files upload file-to-data-set "$program.JCL" "$ZOWE_USERNAME.JCL($program)" --response-timeout 30
+  else
+    echo "Error: $program.JCL not found in repository"
+    return 1
+  fi
+  
+  # Submit the job
+  echo "Submitting job for $program..."
+  JOB_ID=$(zowe jobs submit data-set "$ZOWE_USERNAME.JCL($program)" --rff jobid --rft string --response-timeout 60)
+  
+  if [ -n "$JOB_ID" ]; then
+    echo "✓ Job submitted successfully. Job ID: $JOB_ID"
+    
+    # Wait for job to complete
+    echo "Waiting for job to complete..."
+    sleep 20
+    
+    # Check job status
+    JOB_STATUS=$(zowe jobs view job-status-by-jobid "$JOB_ID" --rff status --rft string --response-timeout 30)
+    echo "Job status: $JOB_STATUS"
+    
+    # Get job return code
+    JOB_RC=$(zowe jobs view job-status-by-jobid "$JOB_ID" --rff retcode --rft string --response-timeout 30)
+    echo "Job return code: $JOB_RC"
+    
+    # Get detailed compilation output
+    echo "=== COMPILATION OUTPUT ==="
+    zowe jobs view spool-file-by-id "$JOB_ID" 2 --response-timeout 30
+    
+    # Check if compilation was successful
+    if [ "$JOB_RC" = "CC 0000" ] || [ "$JOB_RC" = "null" ]; then
+      echo "✓ Job completed successfully"
+      return 0
+    else
+      echo "✗ Job completed with issues. Return code: $JOB_RC"
+      echo "Check the compilation output above for COBOL syntax errors."
+      return 1
+    fi
+    
+  else
+    echo "✗ Failed to submit job for $program"
+    return 1
   fi
 }
 
-# Run for each program
-for program in NUMBERS EMPPAY DEPTPAY; do
-  run_cobolcheck "$program"
+# Process just NUMBERS for now
+for program in NUMBERS; do
+  if process_program "$program"; then
+    echo "✓ Successfully processed $program"
+  else
+    echo "✗ Failed to process $program"
+  fi
+  echo "----------------------------------------"
 done
 
-echo "Mainframe operations completed"
+echo "Automated job submission completed"
