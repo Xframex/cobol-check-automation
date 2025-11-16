@@ -1,12 +1,12 @@
 #!/bin/bash
 # mainframe_operations.sh
 
-echo "Starting automated job submission..."
+echo "Starting COBOL automation..."
 
 ZOWE_USERNAME="$ZOWE_OPT_USER"
 echo "Working with username: $ZOWE_USERNAME"
 
-# Function to submit job and get detailed output
+# Function to process a COBOL program
 process_program() {
   program=$1
   echo "=== Processing $program ==="
@@ -16,16 +16,16 @@ process_program() {
     echo "Uploading $program.CBL to mainframe..."
     zowe zos-files upload file-to-data-set "src/main/cobol/$program.CBL" "$ZOWE_USERNAME.CBL($program)" --response-timeout 30
   else
-    echo "Error: $program.CBL not found in repository"
+    echo "Error: $program.CBL not found"
     return 1
   fi
   
-  # Upload JCL file
+  # Upload JCL
   if [ -f "$program.JCL" ]; then
     echo "Uploading $program.JCL to mainframe..."
     zowe zos-files upload file-to-data-set "$program.JCL" "$ZOWE_USERNAME.JCL($program)" --response-timeout 30
   else
-    echo "Error: $program.JCL not found in repository"
+    echo "Error: $program.JCL not found"
     return 1
   fi
   
@@ -38,7 +38,7 @@ process_program() {
     
     # Wait for job to complete
     echo "Waiting for job to complete..."
-    sleep 20
+    sleep 25
     
     # Check job status
     JOB_STATUS=$(zowe jobs view job-status-by-jobid "$JOB_ID" --rff status --rft string --response-timeout 30)
@@ -48,17 +48,15 @@ process_program() {
     JOB_RC=$(zowe jobs view job-status-by-jobid "$JOB_ID" --rff retcode --rft string --response-timeout 30)
     echo "Job return code: $JOB_RC"
     
-    # Get detailed compilation output
-    echo "=== COMPILATION OUTPUT ==="
-    zowe jobs view spool-file-by-id "$JOB_ID" 2 --response-timeout 30
+    # Get program output
+    echo "=== PROGRAM OUTPUT ==="
+    zowe jobs view spool-file-by-id "$JOB_ID" 3 --response-timeout 30
     
-    # Check if compilation was successful
-    if [ "$JOB_RC" = "CC 0000" ] || [ "$JOB_RC" = "null" ]; then
-      echo "✓ Job completed successfully"
+    if [ "$JOB_RC" = "CC 0000" ]; then
+      echo "✓ $program executed successfully!"
       return 0
     else
-      echo "✗ Job completed with issues. Return code: $JOB_RC"
-      echo "Check the compilation output above for COBOL syntax errors."
+      echo "✗ $program failed with return code: $JOB_RC"
       return 1
     fi
     
@@ -68,8 +66,8 @@ process_program() {
   fi
 }
 
-# Process just NUMBERS for now
-for program in NUMBERS; do
+# Process all programs
+for program in NUMBERS EMPPAY DEPTPAY; do
   if process_program "$program"; then
     echo "✓ Successfully processed $program"
   else
@@ -78,4 +76,4 @@ for program in NUMBERS; do
   echo "----------------------------------------"
 done
 
-echo "Automated job submission completed"
+echo "COBOL automation completed"
