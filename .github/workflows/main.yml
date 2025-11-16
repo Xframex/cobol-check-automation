@@ -41,12 +41,35 @@ jobs:
         run: zowe --version
 
       # -----------------------------
+      # 🔧 NEW: Configure Zowe CLI with mainframe connection
+      # -----------------------------
+      - name: Configure Zowe CLI
+        env:
+          ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
+          ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_HOST: ${{ secrets.ZOWE_HOST }}
+          ZOWE_PORT: ${{ secrets.ZOWE_PORT }}
+        run: |
+          echo "Configuring Zowe CLI connection..."
+          zowe profiles create zosmf-profile zosmf \
+            --host "$ZOWE_HOST" \
+            --port "$ZOWE_PORT" \
+            --user "$ZOWE_USERNAME" \
+            --password "$ZOWE_PASSWORD" \
+            --reject-unauthorized false
+          
+          zowe profiles set zosmf zosmf
+          echo "Zowe CLI configuration completed successfully"
+
+      # -----------------------------
       # 5️⃣ Run your COBOL operations script
       # -----------------------------
       - name: Run COBOL Check
         env:
           ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
           ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+          ZOWE_HOST: ${{ secrets.ZOWE_HOST }}
+          ZOWE_PORT: ${{ secrets.ZOWE_PORT }}
         run: |
           chmod +x .github/scripts/zowe_operations.sh
           .github/scripts/zowe_operations.sh
