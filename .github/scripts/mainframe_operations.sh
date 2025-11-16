@@ -1,63 +1,45 @@
 #!/bin/bash
 # mainframe_operations.sh
 
-# Set up environment
-export PATH=$PATH:/usr/lpp/java/J8.0_64/bin
-export JAVA_HOME=/usr/lpp/java/J8.0_64
-export PATH=$PATH:/usr/lpp/zowe/cli/node/bin
+echo "Starting mainframe operations..."
 
-# Check Java availability
-java -version
-
-# Use the Zowe username from environment variable (NOT hardcoded)
+# Use the Zowe username from environment variable
 ZOWE_USERNAME="$ZOWE_OPT_USER"
+LOWERCASE_USERNAME=$(echo "$ZOWE_USERNAME" | tr '[:upper:]' '[:lower:]')
 
-# Change to the cobolcheck directory
-cd cobolcheck || exit
-echo "Changed to $(pwd)"
+echo "Working with username: $ZOWE_USERNAME"
 
-ls -al
+# Execute commands on the mainframe using Zowe CLI
+echo "Changing to cobolcheck directory on mainframe..."
+zowe zos-files list uss "/z/$LOWERCASE_USERNAME/cobolcheck" --response-timeout 30
 
-# Make cobolcheck executable
-chmod +x cobolcheck
-echo "Made cobolcheck executable"
-
-# Make script in scripts directory executable
-cd scripts || exit
-chmod +x linux_gnucobol_run_tests
-echo "Made linux_gnucobol_run_tests executable"
-cd ..
+echo "Listing files in cobolcheck directory:"
+zowe zos-files list uss "/z/$LOWERCASE_USERNAME/cobolcheck" --response-timeout 30
 
 # Function to run cobolcheck and copy files
 run_cobolcheck() {
   program=$1
   echo "Running cobolcheck for $program"
 
-  # Run cobolcheck (do not stop if it fails)
-  ./cobolcheck -p "$program"
-  echo "Cobolcheck execution completed for $program (exceptions may have occurred)"
+  # Execute cobolcheck on the mainframe via SSH or shell command
+  zowe ssh issue command "cd /z/$LOWERCASE_USERNAME/cobolcheck && ./cobolcheck -p $program" --host "$ZOWE_OPT_HOST" --user "$ZOWE_OPT_USER" --password "$ZOWE_OPT_PASSWORD" || echo "Cobolcheck execution completed for $program (exceptions may have occurred)"
 
-  # Check if CC##99.CBL was created
-  if [ -f "CC##99.CBL" ]; then
-    # Copy to the MVS dataset
-    if cp CC##99.CBL "//'${ZOWE_USERNAME}.CBL($program)'"; then
-      echo "Copied CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)"
-    else
-      echo "Failed to copy CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)"
-    fi
-  else
-    echo "CC##99.CBL not found for $program"
+  # Check if CC##99.CBL was created and copy it
+  echo "Checking for CC##99.CBL and copying files for $program..."
+  
+  # Copy CC##99.CBL to MVS dataset if it exists
+  zowe zos-files download uss-file "/z/$LOWERCASE_USERNAME/cobolcheck/CC##99.CBL" -f "./temp_cc99.cbl" --response-timeout 30 || echo "CC##99.CBL not found for $program"
+  
+  if [ -f "./temp_cc99.cbl" ]; then
+    zowe zos-files upload file-to-data-set "./temp_cc99.cbl" "$ZOWE_USERNAME.CBL($program)" --response-timeout 30 && echo "Copied CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)" || echo "Failed to copy CC##99.CBL"
+    rm -f "./temp_cc99.cbl"
   fi
 
-  # Copy the JCL file if it exists
-  if [ -f "${program}.JCL" ]; then
-    if cp "${program}.JCL" "//'${ZOWE_USERNAME}.JCL($program)'"; then
-      echo "Copied ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)"
-    else
-      echo "Failed to copy ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)"
-    fi
+  # Copy the JCL file if it exists in our repository
+  if [ -f "$program.JCL" ]; then
+    zowe zos-files upload file-to-data-set "$program.JCL" "$ZOWE_USERNAME.JCL($program)" --response-timeout 30 && echo "Copied ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)" || echo "Failed to copy ${program}.JCL"
   else
-    echo "${program}.JCL not found"
+    echo "${program}.JCL not found in repository"
   fi
 }
 
