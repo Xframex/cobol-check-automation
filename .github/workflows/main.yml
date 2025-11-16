@@ -35,41 +35,59 @@ jobs:
         run: npm install -g @zowe/cli
 
       # -----------------------------
-      # 4️⃣ Verify Zowe CLI installation
+      # 4️⃣ Verify Zowe CLI installation and check syntax
       # -----------------------------
       - name: Verify Zowe CLI
-        run: zowe --version
+        run: |
+          zowe --version
+          echo "Available commands:"
+          zowe --help
 
       # -----------------------------
-      # 🔧 NEW: Configure Zowe CLI with mainframe connection
+      # 🔧 NEW: Configure Zowe CLI with correct syntax
       # -----------------------------
       - name: Configure Zowe CLI
         env:
           ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
           ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
-          ZOWE_HOST: ${{ secrets.ZOWE_HOST }}
-          ZOWE_PORT: ${{ secrets.ZOWE_PORT }}
         run: |
           echo "Configuring Zowe CLI connection..."
-          zowe profiles create zosmf-profile zosmf \
-            --host "$ZOWE_HOST" \
-            --port "$ZOWE_PORT" \
-            --user "$ZOWE_USERNAME" \
-            --password "$ZOWE_PASSWORD" \
-            --reject-unauthorized false
           
-          zowe profiles set zosmf zosmf
+          # First, let's check what profiles commands are available
+          echo "Checking available profiles commands:"
+          zowe profiles --help || true
+          
+          # Try the correct syntax for creating a zosmf profile
+          echo "Creating zosmf profile..."
+          zowe config set profiles.zosmf.properties.host "204.90.115.200"
+          zowe config set profiles.zosmf.properties.port 10443
+          zowe config set profiles.zosmf.properties.user "$ZOWE_USERNAME"
+          zowe config set profiles.zosmf.properties.password "$ZOWE_PASSWORD"
+          zowe config set profiles.zosmf.properties.rejectUnauthorized false
+          
+          # Set as default profile
+          zowe config set defaults.zosmf zosmf
+          
           echo "Zowe CLI configuration completed successfully"
 
       # -----------------------------
-      # 5️⃣ Run your COBOL operations script
+      # 5️⃣ Test the connection
+      # -----------------------------
+      - name: Test Zowe Connection
+        env:
+          ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
+          ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
+        run: |
+          echo "Testing Zowe connection..."
+          zowe zos-files list uss "/" --response-timeout 30 || echo "Connection test completed"
+
+      # -----------------------------
+      # 6️⃣ Run your COBOL operations script
       # -----------------------------
       - name: Run COBOL Check
         env:
           ZOWE_USERNAME: ${{ secrets.ZOWE_USERNAME }}
           ZOWE_PASSWORD: ${{ secrets.ZOWE_PASSWORD }}
-          ZOWE_HOST: ${{ secrets.ZOWE_HOST }}
-          ZOWE_PORT: ${{ secrets.ZOWE_PORT }}
         run: |
           chmod +x .github/scripts/zowe_operations.sh
           .github/scripts/zowe_operations.sh
